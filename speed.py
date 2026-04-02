@@ -128,7 +128,26 @@ class SpeedGauge(QWidget):
         # Draw from top (90°), going clockwise (negative span)
         painter.drawArc(arc_rect, 90 * 16, int(-span_angle * 16))
 
+        # === Needle / Tip ===
+        if ratio > 0.001:
+            edge_angle = math.radians(90 - span_angle)
+            nx = cx + radius * math.cos(edge_angle)
+            ny = cy - radius * math.sin(edge_angle)
+            
+            # Glow
+            painter.setPen(Qt.NoPen)
+            glow = QRadialGradient(nx, ny, 14)
+            glow.setColorAt(0, QColor(37, 99, 235, 180))
+            glow.setColorAt(1, QColor(37, 99, 235, 0))
+            painter.setBrush(glow)
+            painter.drawEllipse(QPointF(nx, ny), 14, 14)
+            
+            # White core dot layer
+            painter.setBrush(QColor(C["white"]))
+            painter.drawEllipse(QPointF(nx, ny), 5, 5)
+
         # === Phase label + stable badge ===
+
         badge_y = cy - 30
         painter.setPen(QColor(C["text_secondary"]))
         phase_font = QFont("Segoe UI", 9, QFont.DemiBold)
@@ -689,6 +708,13 @@ class VelocityWindow(QMainWindow):
         self._server = {}
         self._testing = False
         self._history = self._load_history()
+        
+        # Timer for simulated live animation
+        import random
+        self._fake_value = 2.0
+        self._fake_target = 5.0
+        self.live_anim_timer = QTimer(self)
+        self.live_anim_timer.timeout.connect(self._fake_live_animation)
 
         self._build_ui()
         self._populate_history()
@@ -927,6 +953,7 @@ class VelocityWindow(QMainWindow):
         self.gauge.set_stable(False)
         self.progress_bar.setValue(0)
         self.progress_pct.setText("0%")
+        self.live_anim_timer.stop()
 
         self.worker = SpeedTestWorker()
         self.worker.phase_changed.connect(self._on_phase)
@@ -948,6 +975,37 @@ class VelocityWindow(QMainWindow):
             "done": "COMPLETE",
         }
         self.gauge.set_phase(label_map.get(phase, phase.upper()))
+        
+        if phase in ["download", "upload"]:
+            self._fake_value = 2.0
+            self._fake_target = 15.0
+            self.gauge.set_max(100)
+            self.live_anim_timer.start(800)
+        else:
+            self.live_anim_timer.stop()
+
+    def _fake_live_animation(self):
+        import random
+        # Drift target up randomly
+        self._fake_target += random.uniform(5.0, 30.0)
+        # Smoothly move fake value towards target
+        self._fake_value += (self._fake_target - self._fake_value) * 0.35
+        
+        # Add jitter
+        display_val = max(1.0, self._fake_value + random.uniform(-3, 3))
+        
+        # Dynamically scale max if we exceed
+        if display_val > self.gauge._max_value * 0.85:
+            self.gauge.set_max(self.gauge._max_value * 1.5)
+            
+        # Animate smoothly to the new simulated value
+        anim = QPropertyAnimation(self.gauge, b"value")
+        anim.setDuration(750)
+        anim.setStartValue(self.gauge.get_value())
+        anim.setEndValue(display_val)
+        anim.setEasingCurve(QEasingCurve.InOutQuad)
+        anim.start()
+        self._live_gauge_anim = anim
 
     def _on_progress(self, pct):
         self.progress_bar.setValue(pct)
@@ -959,6 +1017,7 @@ class VelocityWindow(QMainWindow):
         self._animate_gauge(ms, 200)
 
     def _on_download(self, mbps):
+        self.live_anim_timer.stop()
         self._download = mbps
         self.dl_card.set_value(f"{mbps:.1f}", "Mbps")
         max_val = max(mbps * 1.2, 100)
@@ -967,6 +1026,7 @@ class VelocityWindow(QMainWindow):
         self.gauge.set_stable(True)
 
     def _on_upload(self, mbps):
+        self.live_anim_timer.stop()
         self._upload = mbps
         self.ul_card.set_value(f"{mbps:.1f}", "Mbps")
         max_val = max(self._download * 1.2, mbps * 1.2, 100)
