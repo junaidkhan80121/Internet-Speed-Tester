@@ -212,6 +212,7 @@ class MetricCard(QFrame):
                 border-left: 4px solid {border_color};
                 border-radius: 10px;
             }}
+            QLabel {{ background: transparent; }}
         """)
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(16)
@@ -279,6 +280,7 @@ class InfoBox(QFrame):
                 border: 1px solid {C['border']};
                 border-radius: 10px;
             }}
+            QLabel {{ background: transparent; }}
         """)
         self.setFixedHeight(70)
         layout = QVBoxLayout(self)
@@ -332,6 +334,7 @@ class HistoryRow(QFrame):
                 border-color: {C['primary']};
                 background: {C['primary_light']};
             }}
+            QLabel {{ background: transparent; }}
         """)
 
         layout = QHBoxLayout(self)
