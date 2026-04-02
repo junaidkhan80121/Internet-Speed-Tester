@@ -415,6 +415,7 @@ class GlobalNetworkSection(QFrame):
                 background: {C['dark_section']};
                 border-radius: 14px;
             }}
+            QLabel {{ background: transparent; }}
         """)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 30, 0)
